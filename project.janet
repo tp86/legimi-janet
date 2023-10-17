@@ -3,27 +3,35 @@
   :description "Unofficial Legimi ebook downloader for Kindle and Linux"
   :dependencies ["https://github.com/joy-framework/http"])
 
-(def sources ["src/legimi"])
+(def- sources ["src/legimi"])
+(def- dev-deps ["spork"])
 
 (declare-source
   :source sources)
 
+(defn- remove-prefix
+  [prefix str]
+  (if (string/has-prefix? prefix str)
+    (string/slice str (length prefix))
+    str))
+
+(defn- safe-link
+  [src-dir dest-dir src-file &opt dest-file]
+  (default dest-file src-file)
+  (try
+    (os/link (string src-dir "/" src-file)
+             (string dest-dir "/" dest-file)
+             true)
+    ([err] (eprint err))))
+
 (task "dev-setup" []
   (let [src-path (string (os/getenv "HOME") "/.local/lib/janet")
-        dest-path (string (os/cwd) "/jpm_tree/lib")
-        dev-deps ["spork"]]
+        dest-path (string (os/cwd) "/jpm_tree/lib")]
     (each dep dev-deps
-      (try
-        (os/link (string src-path "/" dep) (string dest-path "/" dep) true)
-        ([err] (eprint err))))
+      (safe-link src-path dest-path dep))
     (each source sources
-      (try
-        (os/link (string (os/cwd) "/" source)
-                 (string dest-path "/" (if (= (string/slice source 0 4) "src/")
-                                          (string/slice source 4)
-                                          source))
-                 true)
-        ([err] (eprint err))))))
+      (safe-link (os/cwd) dest-path
+            source (remove-prefix "src/" source)))))
 
 (task "live-test" []
       (run-tests "testlive"))
